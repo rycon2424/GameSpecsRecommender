@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaming Desktop Configurator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        select, input {
+            padding: 5px;
+            width: 200px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background-color: #0056b3;
+            }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        .build {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Gaming Desktop Configurator</h1>
+    <div class="form-group">
+        <label for="use-case">Use Case:</label>
+        <select id="use-case">
+            <option value="">Any</option>
+            <option value="Gaming">Gaming</option>
+            <option value="Streaming">Streaming</option>
+            <option value="VR">VR</option>
+            <option value="All-Round">All-Round</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="max-price">Max Price (€):</label>
+        <input type="number" id="max-price" placeholder="Enter max price">
+    </div>
+    <button id="recommend-btn" onclick="sendRequest()">Get Recommendations</button>
+    <div id="results"></div>
+
+    <script>
+        let socket;
+
+        function connectSocket() {
+            socket = new WebSocket("ws://localhost:5275/ws/recommend");
+
+            socket.onmessage = function (event) {
+                const builds = JSON.parse(event.data);
+                console.log("Received builds:", builds);
+                const resultsDiv = document.getElementById("results");
+                resultsDiv.innerHTML = "";
+
+                if (!builds || builds.length === 0) {
+                    resultsDiv.innerHTML = "<p>No builds found. Try different filters.</p>";
+                } else {
+                    builds.forEach(build => {
+                        const div = document.createElement("div");
+                        div.className = "build";
+                        div.innerHTML = `
+                                    <strong>${build.Name}</strong><br />
+                                    CPU: ${build.CPU}<br />
+                                    GPU: ${build.GPU}<br />
+                                    RAM: ${build.RAM_GB} GB<br />
+                                    Price: €${build.PriceEUR}<br />
+                                    Use Case: ${build.UseCase}
+                                `;
+                        resultsDiv.appendChild(div);
+                    });
+                }
+            };
+
+            socket.onclose = () => {
+                console.warn("WebSocket closed. Reconnecting in 1s...");
+                setTimeout(connectSocket, 1000);
+            };
+
+            socket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+
+            socket.onopen = () => {
+                console.log("WebSocket connected");
+            };
+        }
+
+        function sendRequest() {
+            const useCaseElement = document.getElementById("use-case");
+            const maxPriceElement = document.getElementById("max-price");
+            const useCase = useCaseElement ? useCaseElement.value : null;
+            const maxPrice = maxPriceElement ? parseInt(maxPriceElement.value) || null : null;
+            const payload = { UseCase: useCase, MaxPrice: maxPrice };
+            console.log("Sending payload:", payload);
+
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(payload));
+            } else {
+                console.error("WebSocket is not open. Reconnecting...");
+                connectSocket();
+                // Wait briefly and try sending again
+                setTimeout(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify(payload));
+                    }
+                }, 500);
+            }
+        }
+
+        connectSocket();
+    </script>
+</body>
+</html>

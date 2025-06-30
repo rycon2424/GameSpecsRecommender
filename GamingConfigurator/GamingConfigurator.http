@@ -1,0 +1,6 @@
+@GamingConfigurator_HostAddress = http://localhost:5275
+
+GET {{GamingConfigurator_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
